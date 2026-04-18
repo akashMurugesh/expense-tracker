@@ -1,65 +1,307 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useState } from "react";
+import { useSummary } from "@/lib/hooks";
+import { MONTH_NAMES } from "@/lib/constants";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import {
+  TrendingUp,
+  TrendingDown,
+  Wallet,
+  ArrowLeftRight,
+  ChevronLeft,
+  ChevronRight,
+  CalendarDays,
+} from "lucide-react";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  Legend,
+} from "recharts";
+
+const CHART_COLORS = [
+  "#7C3AED", "#22C55E", "#EAB308", "#EF4444", "#A78BFA",
+  "#06B6D4", "#F97316", "#EC4899", "#14B8A6", "#8B5CF6",
+];
+
+const currency = new Intl.NumberFormat("en-IN", {
+  style: "currency",
+  currency: "INR",
+  maximumFractionDigits: 0,
+});
+
+// Helper to get "MMM YYYY" from a Date
+function toMonthTab(date: Date): string {
+  return `${MONTH_NAMES[date.getMonth()]} ${date.getFullYear()}`;
+}
+
+export default function DashboardPage() {
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const month = toMonthTab(currentDate);
+  const { data, error, isLoading } = useSummary(month);
+
+  const isCurrentMonth =
+    currentDate.getMonth() === new Date().getMonth() &&
+    currentDate.getFullYear() === new Date().getFullYear();
+
+  function goToPrevMonth() {
+    setCurrentDate((prev) => {
+      const d = new Date(prev);
+      d.setMonth(d.getMonth() - 1);
+      return d;
+    });
+  }
+
+  function goToNextMonth() {
+    if (!isCurrentMonth) {
+      setCurrentDate((prev) => {
+        const d = new Date(prev);
+        d.setMonth(d.getMonth() + 1);
+        return d;
+      });
+    }
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-destructive">Failed to load dashboard data. Check your Google Sheets connection.</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <div className="space-y-8">
+      {/* ── Page Header + Month Selector ──────────────────────── */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Your financial overview at a glance
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+
+        <div className="flex items-center gap-1 rounded-lg border border-border bg-card px-1 py-1 shadow-sm">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={goToPrevMonth}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+
+          <div className="flex items-center gap-2 px-3 min-w-[140px] justify-center">
+            <CalendarDays className="h-4 w-4 text-primary" />
+            <span className="text-sm font-semibold">{month}</span>
+          </div>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={goToNextMonth}
+            disabled={isCurrentMonth}
           >
-            Documentation
-          </a>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
         </div>
-      </main>
+      </div>
+
+      {/* ── Summary Cards ────────────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <SummaryCard
+          title="Total Income"
+          value={data ? currency.format(data.totalIncome) : undefined}
+          icon={<TrendingUp className="h-5 w-5 text-emerald-500" />}
+          loading={isLoading}
+        />
+        <SummaryCard
+          title="Total Expenses"
+          value={data ? currency.format(data.totalExpenses) : undefined}
+          icon={<TrendingDown className="h-5 w-5 text-red-500" />}
+          loading={isLoading}
+        />
+        <SummaryCard
+          title="Net Balance"
+          value={data ? currency.format(data.netBalance) : undefined}
+          icon={<Wallet className="h-5 w-5 text-primary" />}
+          loading={isLoading}
+          valueClass={data && data.netBalance >= 0 ? "text-emerald-500" : "text-red-500"}
+        />
+        <SummaryCard
+          title="Transactions"
+          value={data ? String(data.transactionCount) : undefined}
+          icon={<ArrowLeftRight className="h-5 w-5 text-muted-foreground" />}
+          loading={isLoading}
+        />
+      </div>
+
+      {/* ── Charts + Recent Transactions ─────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        {/* Spending by Category — Pie Chart */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold tracking-tight">
+              Spending by Category
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <Skeleton className="h-64 w-full" />
+            ) : data && data.byCategory.length > 0 ? (
+              <ResponsiveContainer width="100%" height={280}>
+                <PieChart>
+                  <Pie
+                    data={data.byCategory}
+                    dataKey="amount"
+                    nameKey="category"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={100}
+                    innerRadius={50}
+                    paddingAngle={2}
+                    label={({ name }) => name}
+                  >
+                    {data.byCategory.map((_, index) => (
+                      <Cell
+                        key={index}
+                        fill={CHART_COLORS[index % CHART_COLORS.length]}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value) => currency.format(Number(value))}
+                    contentStyle={{
+                      backgroundColor: "var(--popover)",
+                      border: "1px solid var(--border)",
+                      borderRadius: "8px",
+                      color: "var(--popover-foreground)",
+                    }}
+                  />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-12">
+                No expense data this month
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Recent Transactions */}
+        <Card className="lg:col-span-3">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold tracking-tight">
+              Recent Transactions
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Skeleton key={i} className="h-10 w-full" />
+                ))}
+              </div>
+            ) : data && data.recentTransactions.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.recentTransactions.map((t) => (
+                    <TableRow key={`${t.rowIndex}-${t.date}`}>
+                      <TableCell className="text-muted-foreground">
+                        {t.date}
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {t.description}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{t.subcategory}</Badge>
+                      </TableCell>
+                      <TableCell
+                        className={`text-right font-semibold ${
+                          t.categoryType === "Income"
+                            ? "text-emerald-500"
+                            : "text-red-500"
+                        }`}
+                      >
+                        {t.categoryType === "Income" ? "+" : "-"}
+                        {currency.format(Math.abs(t.incomeExpense))}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-12">
+                No transactions this month
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
+  );
+}
+
+// ── Summary Card Component ─────────────────────────────────────
+function SummaryCard({
+  title,
+  value,
+  icon,
+  loading,
+  valueClass,
+}: {
+  title: string;
+  value?: string;
+  icon: React.ReactNode;
+  loading: boolean;
+  valueClass?: string;
+}) {
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between pb-0">
+        <CardTitle className="text-sm font-medium text-muted-foreground">
+          {title}
+        </CardTitle>
+        {icon}
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <Skeleton className="h-8 w-28" />
+        ) : (
+          <p className={`text-2xl font-bold tracking-tight ${valueClass ?? ""}`}>
+            {value}
+          </p>
+        )}
+      </CardContent>
+    </Card>
   );
 }
