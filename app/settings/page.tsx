@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useCategories, useAccounts } from "@/lib/hooks";
+import { useCategories, useAccounts, useMembers } from "@/lib/hooks";
+import { usePreferences, CURRENCIES } from "@/lib/preferences";
+import { ThemeToggle } from "@/components/layout/theme/theme-toggle";
 import {
   Card,
   CardContent,
@@ -16,7 +18,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,9 +37,10 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Plus, Pencil, Trash2, Loader2, Settings2 } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { Plus, Pencil, Trash2, Loader2, Settings2, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
-import type { Category, Account } from "@/lib/types";
+import type { Category, Account, Member } from "@/lib/types";
 
 export default function SettingsPage() {
   return (
@@ -46,25 +48,164 @@ export default function SettingsPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Manage your accounts, categories, and preferences
+          Manage your preferences and data
         </p>
       </div>
 
-      <Tabs defaultValue="accounts">
-        <TabsList>
-          <TabsTrigger value="accounts">Accounts</TabsTrigger>
-          <TabsTrigger value="categories">Categories</TabsTrigger>
-        </TabsList>
+      {/* ── Preferences ─────────────────────────────────────── */}
+      <PreferencesSection />
 
-        <TabsContent value="accounts" className="mt-6">
-          <AccountsManager />
-        </TabsContent>
+      {/* ── Data Management ──────────────────────────────────── */}
+      <div>
+        <h2 className="text-xl font-semibold tracking-tight mb-4">Data Management</h2>
+        <Tabs defaultValue="accounts">
+          <TabsList>
+            <TabsTrigger value="accounts">Accounts</TabsTrigger>
+            <TabsTrigger value="categories">Categories</TabsTrigger>
+            <TabsTrigger value="members">Members</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="categories" className="mt-6">
-          <CategoriesManager />
-        </TabsContent>
-      </Tabs>
+          <TabsContent value="accounts" className="mt-6">
+            <AccountsManager />
+          </TabsContent>
+
+          <TabsContent value="categories" className="mt-6">
+            <CategoriesManager />
+          </TabsContent>
+
+          <TabsContent value="members" className="mt-6">
+            <MembersManager />
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  PREFERENCES SECTION
+// ═══════════════════════════════════════════════════════════════════
+
+function PreferencesSection() {
+  const { prefs, updatePrefs } = usePreferences();
+  const { data: accData } = useAccounts();
+  const { data: memData } = useMembers();
+
+  const sheetsUrl = prefs.sheetsId
+    ? `https://docs.google.com/spreadsheets/d/${prefs.sheetsId}`
+    : null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg font-semibold tracking-tight">
+          Preferences
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {/* Appearance */}
+        <div className="flex items-center justify-between">
+          <div>
+            <Label className="text-sm font-medium">Appearance</Label>
+            <p className="text-xs text-muted-foreground mt-0.5">Switch between light and dark mode</p>
+          </div>
+          <ThemeToggle />
+        </div>
+
+        <Separator />
+
+        {/* Currency */}
+        <div className="flex items-center justify-between">
+          <div>
+            <Label className="text-sm font-medium">Currency</Label>
+            <p className="text-xs text-muted-foreground mt-0.5">Used for formatting amounts across the app</p>
+          </div>
+          <Select value={prefs.currency} onValueChange={(v) => updatePrefs({ currency: v as typeof prefs.currency })}>
+            <SelectTrigger className="w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {CURRENCIES.map((c) => (
+                <SelectItem key={c.code} value={c.code}>
+                  {c.symbol} {c.code} — {c.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <Separator />
+
+        {/* Default Account */}
+        <div className="flex items-center justify-between">
+          <div>
+            <Label className="text-sm font-medium">Default Account</Label>
+            <p className="text-xs text-muted-foreground mt-0.5">Pre-selected when adding transactions</p>
+          </div>
+          <Select value={prefs.defaultAccount} onValueChange={(v) => updatePrefs({ defaultAccount: v })}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="None" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">None</SelectItem>
+              {accData?.accounts.map((a) => (
+                <SelectItem key={a.rowIndex} value={a.name}>
+                  {a.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <Separator />
+
+        {/* Default Member */}
+        <div className="flex items-center justify-between">
+          <div>
+            <Label className="text-sm font-medium">Default Member</Label>
+            <p className="text-xs text-muted-foreground mt-0.5">Pre-selected when adding transactions</p>
+          </div>
+          <Select value={prefs.defaultMember} onValueChange={(v) => updatePrefs({ defaultMember: v })}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="None" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">None</SelectItem>
+              {memData?.members.map((m) => (
+                <SelectItem key={m.rowIndex} value={m.name}>
+                  {m.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <Separator />
+
+        {/* Google Sheet Link */}
+        <div className="flex items-center justify-between">
+          <div>
+            <Label className="text-sm font-medium">Google Sheet</Label>
+            <p className="text-xs text-muted-foreground mt-0.5">Open the source spreadsheet directly</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Input
+              className="w-48 text-xs"
+              placeholder="Paste Sheet ID"
+              value={prefs.sheetsId}
+              onChange={(e) => updatePrefs({ sheetsId: e.target.value.trim() })}
+            />
+            {sheetsUrl && (
+              <Button variant="outline" size="icon" asChild>
+                <a href={sheetsUrl} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="h-4 w-4" />
+                </a>
+              </Button>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -176,14 +317,6 @@ function CategoriesManager() {
   const [editCat, setEditCat] = useState<Category | null>(null);
   const [deleteCat, setDeleteCat] = useState<Category | null>(null);
 
-  // Group categories by parent
-  const grouped = new Map<string, Category[]>();
-  for (const cat of data?.categories ?? []) {
-    const list = grouped.get(cat.category) ?? [];
-    list.push(cat);
-    grouped.set(cat.category, list);
-  }
-
   return (
     <>
       <Card>
@@ -219,9 +352,13 @@ function CategoriesManager() {
                     <TableCell className="text-muted-foreground">{cat.category}</TableCell>
                     <TableCell className="font-medium">{cat.subcategory}</TableCell>
                     <TableCell>
-                      <Badge variant={cat.categoryType === "Income" ? "default" : "secondary"}>
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                        cat.categoryType === "Income"
+                          ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                          : "bg-red-500/15 text-red-700 dark:text-red-400"
+                      }`}>
                         {cat.categoryType}
-                      </Badge>
+                      </span>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
@@ -272,6 +409,101 @@ function CategoriesManager() {
             if (!res.ok) throw new Error("Failed to delete category");
             toast.success("Category deleted");
             setDeleteCat(null);
+            mutate();
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  MEMBERS MANAGER
+// ═══════════════════════════════════════════════════════════════════
+
+function MembersManager() {
+  const { data, isLoading, mutate } = useMembers();
+  const [addOpen, setAddOpen] = useState(false);
+  const [editMem, setEditMem] = useState<Member | null>(null);
+  const [deleteMem, setDeleteMem] = useState<Member | null>(null);
+
+  return (
+    <>
+      <Card>
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <CardTitle className="text-lg font-semibold tracking-tight">
+            Family Members
+          </CardTitle>
+          <Button size="sm" onClick={() => setAddOpen(true)}>
+            <Plus data-icon="inline-start" />
+            Add Member
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-10 w-full" />
+              ))}
+            </div>
+          ) : data && data.members.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Member Name</TableHead>
+                  <TableHead className="text-right w-24">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.members.map((mem) => (
+                  <TableRow key={mem.rowIndex}>
+                    <TableCell className="font-medium">{mem.name}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="icon-sm" onClick={() => setEditMem(mem)}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon-sm" onClick={() => setDeleteMem(mem)}>
+                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="text-center py-12">
+              <Settings2 className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground">No members yet. Add family members to tag transactions.</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <AddMemberDialog open={addOpen} onOpenChange={setAddOpen} onSuccess={() => mutate()} />
+
+      {editMem && (
+        <EditMemberDialog
+          key={editMem.rowIndex}
+          member={editMem}
+          open={!!editMem}
+          onOpenChange={(open) => !open && setEditMem(null)}
+          onSuccess={() => mutate()}
+        />
+      )}
+
+      {deleteMem && (
+        <DeleteConfirmDialog
+          open={!!deleteMem}
+          onOpenChange={(open) => !open && setDeleteMem(null)}
+          title="Delete Member"
+          description={`Are you sure you want to delete "${deleteMem.name}"? Existing transactions tagged with this member won't be affected.`}
+          onConfirm={async () => {
+            const res = await fetch(`/api/members/${deleteMem.rowIndex}`, { method: "DELETE" });
+            if (!res.ok) throw new Error("Failed to delete member");
+            toast.success("Member deleted");
+            setDeleteMem(null);
             mutate();
           }}
         />
@@ -606,6 +838,138 @@ function EditCategoryDialog({
             <Input
               value={subcategory}
               onChange={(e) => setSubcategory(e.target.value)}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={saving}>
+            {saving && <Loader2 className="h-4 w-4 animate-spin" data-icon="inline-start" />}
+            {saving ? "Saving..." : "Save"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Add Member ──────────────────────────────────────────────────
+function AddMemberDialog({
+  open,
+  onOpenChange,
+  onSuccess,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSuccess: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function handleSubmit() {
+    if (!name.trim()) {
+      toast.error("Member name is required");
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch("/api/members", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim() }),
+      });
+      if (!res.ok) throw new Error("Failed to add member");
+      toast.success("Member added");
+      setName("");
+      onOpenChange(false);
+      onSuccess();
+    } catch {
+      toast.error("Failed to add member");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Add Member</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-4 py-2">
+          <div className="grid gap-2">
+            <Label>Member Name</Label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Me, Wife, Joint"
+              onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={saving}>
+            {saving && <Loader2 className="h-4 w-4 animate-spin" data-icon="inline-start" />}
+            {saving ? "Saving..." : "Add"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Edit Member ─────────────────────────────────────────────────
+function EditMemberDialog({
+  member,
+  open,
+  onOpenChange,
+  onSuccess,
+}: {
+  member: Member;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSuccess: () => void;
+}) {
+  const [name, setName] = useState(member.name);
+  const [saving, setSaving] = useState(false);
+
+  async function handleSubmit() {
+    if (!name.trim()) {
+      toast.error("Member name is required");
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/members/${member.rowIndex}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim() }),
+      });
+      if (!res.ok) throw new Error("Failed to update member");
+      toast.success("Member updated");
+      onOpenChange(false);
+      onSuccess();
+    } catch {
+      toast.error("Failed to update member");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Edit Member</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-4 py-2">
+          <div className="grid gap-2">
+            <Label>Member Name</Label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
             />
           </div>
         </div>

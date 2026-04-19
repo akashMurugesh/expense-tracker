@@ -17,7 +17,10 @@ function getSheets() {
   return google.sheets({ version: "v4", auth });
 }
 
-const SHEET_ID = process.env.GOOGLE_SHEETS_ID!;
+const SHEET_ID = process.env.GOOGLE_SHEETS_ID;
+if (!SHEET_ID) {
+  throw new Error("GOOGLE_SHEETS_ID environment variable is required");
+}
 
 // Read data from a tab
 export async function getSheetData(tabName: string, range?: string) {
@@ -31,9 +34,9 @@ export async function getSheetData(tabName: string, range?: string) {
     });
     return response.data.values || [];
   } catch (error: unknown) {
-    const err = error as { code?: number };
-    // If tab doesn't exist, return empty
-    if (err.code === 400) return [];
+    const isApiError = (e: unknown): e is { code: number } =>
+      typeof e === "object" && e !== null && "code" in e;
+    if (isApiError(error) && error.code === 400) return [];
     throw error;
   }
 }
@@ -140,12 +143,13 @@ export async function createTab(tabName: string, headers?: string[]) {
       "Subcategory",
       "Category",
       "Category Type",
+      "Member",
     ];
     await appendRow(tabName, headerRow);
   } catch (error: unknown) {
-    const err = error as { message?: string };
-    // Tab already exists — that's fine
-    if (err.message?.includes("already exists")) return;
+    const hasMessage = (e: unknown): e is { message: string } =>
+      typeof e === "object" && e !== null && "message" in e && typeof (e as { message: unknown }).message === "string";
+    if (hasMessage(error) && error.message.includes("already exists")) return;
     throw error;
   }
 }

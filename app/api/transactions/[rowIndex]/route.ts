@@ -1,6 +1,6 @@
 import { type NextRequest } from "next/server";
 import { getSheetData, updateRow, deleteRow } from "@/lib/google-sheets";
-import { CATEGORIES_TAB } from "@/lib/constants";
+import { CATEGORIES_TAB, UNCATEGORIZED } from "@/lib/constants";
 import { dateToMonthTab, parseCategory } from "@/lib/sheets-helpers";
 
 export async function PUT(
@@ -15,9 +15,9 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { account, date, description, amount, type, subcategory, month } = body;
+    const { account, date, description, amount, type, subcategory, month, member } = body;
 
-    if (!account || !date || !description || !amount || !type || !subcategory || !month) {
+    if (!account || !date || !description || !amount || !type || !subcategory || !month || !member) {
       return Response.json(
         { error: "Missing required fields" },
         { status: 400 }
@@ -29,7 +29,7 @@ export async function PUT(
     const categories = categoryRows.slice(1).map((row, i) => parseCategory(row, i + 2));
     const matched = categories.find((c) => c.subcategory === subcategory);
 
-    const parentCategory = matched?.category ?? "Uncategorized";
+    const parentCategory = matched?.category ?? UNCATEGORIZED;
     const categoryType = matched?.categoryType ?? type;
 
     const isExpense = type === "Expense";
@@ -51,6 +51,7 @@ export async function PUT(
       subcategory,
       parentCategory,
       categoryType,
+      member,
     ]);
 
     return Response.json({ success: true });
