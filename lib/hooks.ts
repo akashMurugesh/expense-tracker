@@ -1,12 +1,15 @@
 import useSWR from "swr";
-import type { Transaction, Category, Account, Budget } from "./types";
+import type { Transaction, Category, Account, Budget, Member } from "./types";
 
 // Generic fetcher for SWR
-const fetcher = (url: string) =>
-  fetch(url).then((res) => {
-    if (!res.ok) throw new Error("API request failed");
-    return res.json();
-  });
+const fetcher = async (url: string) => {
+  const res = await fetch(url);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Request failed (${res.status})`);
+  }
+  return res.json();
+};
 
 // ── Summary (dashboard data) ────────────────────────────────────
 interface SummaryData {
@@ -52,4 +55,13 @@ interface AccountsData {
 
 export function useAccounts() {
   return useSWR<AccountsData>("/api/accounts", fetcher);
+}
+
+// ── Members ──────────────────────────────────────────────────────
+interface MembersData {
+  members: Member[];
+}
+
+export function useMembers() {
+  return useSWR<MembersData>("/api/members", fetcher);
 }

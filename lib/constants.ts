@@ -2,6 +2,10 @@
 export const CATEGORIES_TAB = "Categories";
 export const BUDGETS_TAB = "Budgets";
 export const ACCOUNTS_TAB = "Accounts";
+export const MEMBERS_TAB = "Members";
+
+// Fallback category name when subcategory has no parent match
+export const UNCATEGORIZED = "Uncategorized";
 
 // Budget threshold percentages
 export const BUDGET_WARNING_THRESHOLD = 0.7;  // Yellow at 70%
@@ -18,4 +22,5 @@ export const TAB_HEADERS: Record<string, string[]> = {
   [CATEGORIES_TAB]: ["Category", "Subcategory", "CategoryType"],
   [ACCOUNTS_TAB]: ["Name"],
   [BUDGETS_TAB]: ["Month", "Category", "Limit"],
+  [MEMBERS_TAB]: ["Name"],
 };

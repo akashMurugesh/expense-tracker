@@ -10,7 +10,6 @@ import {
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ThemeToggle } from "../theme/theme-toggle";
 
 const navItems = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -58,11 +57,6 @@ export function Sidebar() {
           );
         })}
       </nav>
-
-      {/* Bottom: Theme Toggle */}
-      <div className="px-3 py-4 border-t border-border">
-        <ThemeToggle />
-      </div>
     </aside>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useSummary } from "@/lib/hooks";
-import { MONTH_NAMES } from "@/lib/constants";
+import { toMonthTab } from "@/lib/utils";
 import {
   Card,
   CardContent,
@@ -17,7 +17,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import { CategoryBadge } from "@/components/ui/category-badge";
+import { usePreferences } from "@/lib/preferences";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,21 +44,12 @@ const CHART_COLORS = [
   "#06B6D4", "#F97316", "#EC4899", "#14B8A6", "#8B5CF6",
 ];
 
-const currency = new Intl.NumberFormat("en-IN", {
-  style: "currency",
-  currency: "INR",
-  maximumFractionDigits: 0,
-});
-
-// Helper to get "MMM YYYY" from a Date
-function toMonthTab(date: Date): string {
-  return `${MONTH_NAMES[date.getMonth()]} ${date.getFullYear()}`;
-}
 
 export default function DashboardPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const month = toMonthTab(currentDate);
   const { data, error, isLoading } = useSummary(month);
+  const { formatCurrency } = usePreferences();
 
   const isCurrentMonth =
     currentDate.getMonth() === new Date().getMonth() &&
@@ -131,19 +123,19 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <SummaryCard
           title="Total Income"
-          value={data ? currency.format(data.totalIncome) : undefined}
+          value={data ? formatCurrency(data.totalIncome) : undefined}
           icon={<TrendingUp className="h-5 w-5 text-emerald-500" />}
           loading={isLoading}
         />
         <SummaryCard
           title="Total Expenses"
-          value={data ? currency.format(data.totalExpenses) : undefined}
+          value={data ? formatCurrency(data.totalExpenses) : undefined}
           icon={<TrendingDown className="h-5 w-5 text-red-500" />}
           loading={isLoading}
         />
         <SummaryCard
           title="Net Balance"
-          value={data ? currency.format(data.netBalance) : undefined}
+          value={data ? formatCurrency(data.netBalance) : undefined}
           icon={<Wallet className="h-5 w-5 text-primary" />}
           loading={isLoading}
           valueClass={data && data.netBalance >= 0 ? "text-emerald-500" : "text-red-500"}
@@ -190,7 +182,7 @@ export default function DashboardPage() {
                     ))}
                   </Pie>
                   <Tooltip
-                    formatter={(value) => currency.format(Number(value))}
+                    formatter={(value) => formatCurrency(Number(value))}
                     contentStyle={{
                       backgroundColor: "var(--popover)",
                       border: "1px solid var(--border)",
@@ -229,6 +221,8 @@ export default function DashboardPage() {
                   <TableRow>
                     <TableHead>Date</TableHead>
                     <TableHead>Description</TableHead>
+                    <TableHead className="hidden sm:table-cell">Member</TableHead>
+                    <TableHead className="hidden lg:table-cell">Subcategory</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
                   </TableRow>
@@ -242,8 +236,18 @@ export default function DashboardPage() {
                       <TableCell className="font-medium">
                         {t.description}
                       </TableCell>
+                      <TableCell className="hidden sm:table-cell">
+                        {t.member && (
+                          <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                            @{t.member}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell text-muted-foreground">
+                        {t.subcategory}
+                      </TableCell>
                       <TableCell>
-                        <Badge variant="secondary">{t.subcategory}</Badge>
+                        <CategoryBadge category={t.category} />
                       </TableCell>
                       <TableCell
                         className={`text-right font-semibold ${
@@ -253,7 +257,7 @@ export default function DashboardPage() {
                         }`}
                       >
                         {t.categoryType === "Income" ? "+" : "-"}
-                        {currency.format(Math.abs(t.incomeExpense))}
+                        {formatCurrency(Math.abs(t.incomeExpense))}
                       </TableCell>
                     </TableRow>
                   ))}

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTransactions } from "@/lib/hooks";
-import { MONTH_NAMES } from "@/lib/constants";
+import { toMonthTab } from "@/lib/utils";
 import {
   Card,
   CardContent,
@@ -17,7 +17,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import { CategoryBadge } from "@/components/ui/category-badge";
+import { usePreferences } from "@/lib/preferences";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
@@ -34,16 +35,6 @@ import { EditTransactionDialog } from "@/components/transactions/edit-transactio
 import { DeleteTransactionDialog } from "@/components/transactions/delete-transaction-dialog";
 import type { Transaction } from "@/lib/types";
 
-const currency = new Intl.NumberFormat("en-IN", {
-  style: "currency",
-  currency: "INR",
-  maximumFractionDigits: 0,
-});
-
-function toMonthTab(date: Date): string {
-  return `${MONTH_NAMES[date.getMonth()]} ${date.getFullYear()}`;
-}
-
 export default function TransactionsPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const month = toMonthTab(currentDate);
@@ -52,6 +43,7 @@ export default function TransactionsPage() {
   const [search, setSearch] = useState("");
   const [editTx, setEditTx] = useState<Transaction | null>(null);
   const [deleteTx, setDeleteTx] = useState<Transaction | null>(null);
+  const { formatCurrency } = usePreferences();
 
   const isCurrentMonth =
     currentDate.getMonth() === new Date().getMonth() &&
@@ -83,7 +75,8 @@ export default function TransactionsPage() {
       t.description.toLowerCase().includes(q) ||
       t.category.toLowerCase().includes(q) ||
       t.subcategory.toLowerCase().includes(q) ||
-      t.account.toLowerCase().includes(q)
+      t.account.toLowerCase().includes(q) ||
+      t.member.toLowerCase().includes(q)
     );
   });
 
@@ -147,13 +140,13 @@ export default function TransactionsPage() {
         <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 px-3 py-1.5">
           <span className="text-muted-foreground">Income:</span>
           <span className="font-semibold text-emerald-500">
-            {currency.format(totalIncome)}
+            {formatCurrency(totalIncome)}
           </span>
         </div>
         <div className="flex items-center gap-2 rounded-lg bg-red-500/10 px-3 py-1.5">
           <span className="text-muted-foreground">Expenses:</span>
           <span className="font-semibold text-red-500">
-            {currency.format(totalExpenses)}
+            {formatCurrency(totalExpenses)}
           </span>
         </div>
         <div className="flex items-center gap-2 rounded-lg bg-primary/10 px-3 py-1.5">
@@ -194,6 +187,8 @@ export default function TransactionsPage() {
                   <TableHead>Date</TableHead>
                   <TableHead>Description</TableHead>
                   <TableHead className="hidden md:table-cell">Account</TableHead>
+                  <TableHead className="hidden sm:table-cell">Member</TableHead>
+                  <TableHead className="hidden lg:table-cell">Subcategory</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
                   <TableHead className="text-right w-24">Actions</TableHead>
@@ -211,8 +206,18 @@ export default function TransactionsPage() {
                     <TableCell className="hidden md:table-cell text-muted-foreground">
                       {t.account}
                     </TableCell>
+                    <TableCell className="hidden sm:table-cell">
+                      {t.member && (
+                        <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                          @{t.member}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell text-muted-foreground">
+                      {t.subcategory}
+                    </TableCell>
                     <TableCell>
-                      <Badge variant="secondary">{t.subcategory}</Badge>
+                      <CategoryBadge category={t.category} />
                     </TableCell>
                     <TableCell
                       className={`text-right font-semibold ${
@@ -222,7 +227,7 @@ export default function TransactionsPage() {
                       }`}
                     >
                       {t.categoryType === "Income" ? "+" : "-"}
-                      {currency.format(Math.abs(t.incomeExpense))}
+                      {formatCurrency(Math.abs(t.incomeExpense))}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">

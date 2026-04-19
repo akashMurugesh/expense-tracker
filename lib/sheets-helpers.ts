@@ -1,5 +1,5 @@
 import { MONTH_NAMES } from "./constants";
-import type { Transaction, Category, Budget, Account } from "./types";
+import type { Transaction, Category, Budget, Account, Member } from "./types";
 
 // Convert a Date to the tab name format "MMM YYYY" (e.g. "Apr 2026")
 export function getMonthTab(date?: Date): string {
@@ -32,7 +32,8 @@ export function parseTransaction(row: string[], rowIndex: number): Transaction {
     incomeExpense: row[5] ? parseFloat(row[5]) : 0,
     subcategory: row[6] ?? "",
     category: row[7] ?? "",
-    categoryType: (row[8] as "Income" | "Expense") ?? "Expense",
+    categoryType: row[8] === "Income" ? "Income" : "Expense",
+    member: row[9] ?? "",
   };
 }
 
@@ -41,7 +42,7 @@ export function parseCategory(row: string[], rowIndex: number): Category {
     rowIndex,
     category: row[0] ?? "",
     subcategory: row[1] ?? "",
-    categoryType: (row[2] as "Income" | "Expense") ?? "Expense",
+    categoryType: row[2] === "Income" ? "Income" : "Expense",
   };
 }
 
@@ -55,6 +56,13 @@ export function parseBudget(row: string[], rowIndex: number): Budget {
 }
 
 export function parseAccount(row: string[], rowIndex: number): Account {
+  return {
+    rowIndex,
+    name: row[0] ?? "",
+  };
+}
+
+export function parseMember(row: string[], rowIndex: number): Member {
   return {
     rowIndex,
     name: row[0] ?? "",

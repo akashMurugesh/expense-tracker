@@ -18,7 +18,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useCategories, useAccounts } from "@/lib/hooks";
+import { DatePicker } from "@/components/ui/date-picker";
+import { SubcategoryCombobox } from "@/components/transactions/subcategory-combobox";
+import { useCategories, useAccounts, useMembers } from "@/lib/hooks";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import type { Transaction } from "@/lib/types";
@@ -44,17 +46,19 @@ export function EditTransactionDialog({
   const [date, setDate] = useState(transaction.date);
   const [description, setDescription] = useState(transaction.description);
   const [amount, setAmount] = useState(String(Math.abs(transaction.incomeExpense)));
-  const [type, setType] = useState<"Income" | "Expense">(transaction.categoryType);
   const [subcategory, setSubcategory] = useState(transaction.subcategory);
+  const [member, setMember] = useState(transaction.member);
 
   const { data: catData } = useCategories();
   const { data: accData } = useAccounts();
+  const { data: memData } = useMembers();
 
-  const filteredCategories =
-    catData?.categories.filter((c) => c.categoryType === type) ?? [];
+  // Derive type from selected subcategory
+  const matchedCategory = catData?.categories.find((c) => c.subcategory === subcategory);
+  const type = matchedCategory?.categoryType ?? transaction.categoryType;
 
   async function handleSubmit() {
-    if (!account || !date || !description || !amount || !subcategory) {
+    if (!account || !date || !description || !amount || !subcategory || !member) {
       toast.error("Please fill in all fields");
       return;
     }
@@ -72,6 +76,7 @@ export function EditTransactionDialog({
           type,
           subcategory,
           month,
+          member,
         }),
       });
 
@@ -98,37 +103,6 @@ export function EditTransactionDialog({
         </DialogHeader>
 
         <div className="grid gap-4 py-2">
-          {/* Type */}
-          <div className="grid gap-2">
-            <Label>Type</Label>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant={type === "Expense" ? "default" : "outline"}
-                size="sm"
-                className="flex-1"
-                onClick={() => {
-                  setType("Expense");
-                  setSubcategory("");
-                }}
-              >
-                Expense
-              </Button>
-              <Button
-                type="button"
-                variant={type === "Income" ? "default" : "outline"}
-                size="sm"
-                className="flex-1"
-                onClick={() => {
-                  setType("Income");
-                  setSubcategory("");
-                }}
-              >
-                Income
-              </Button>
-            </div>
-          </div>
-
           {/* Account */}
           <div className="grid gap-2">
             <Label>Account</Label>
@@ -146,13 +120,27 @@ export function EditTransactionDialog({
             </Select>
           </div>
 
+          {/* Member */}
+          <div className="grid gap-2">
+            <Label>Member</Label>
+            <Select value={member} onValueChange={setMember}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select member" />
+              </SelectTrigger>
+              <SelectContent>
+                {memData?.members.map((m) => (
+                  <SelectItem key={m.rowIndex} value={m.name}>
+                    {m.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Date */}
           <div className="grid gap-2">
-            <Label>Date (DD/MM/YYYY)</Label>
-            <Input
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-            />
+            <Label>Date</Label>
+            <DatePicker value={date} onChange={setDate} />
           </div>
 
           {/* Description */}
@@ -176,21 +164,21 @@ export function EditTransactionDialog({
             />
           </div>
 
-          {/* Subcategory */}
+          {/* Subcategory — auto-populates category and type */}
           <div className="grid gap-2">
-            <Label>Category</Label>
-            <Select value={subcategory} onValueChange={setSubcategory}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select category" />
-              </SelectTrigger>
-              <SelectContent>
-                {filteredCategories.map((c) => (
-                  <SelectItem key={c.rowIndex} value={c.subcategory}>
-                    {c.category} → {c.subcategory}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Subcategory</Label>
+            <SubcategoryCombobox
+              categories={catData?.categories ?? []}
+              value={subcategory}
+              onChange={setSubcategory}
+            />
+            {matchedCategory && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>Category: <span className="font-medium text-foreground">{matchedCategory.category}</span></span>
+                <span>·</span>
+                <span>Type: <span className={matchedCategory.categoryType === "Income" ? "font-medium text-emerald-500" : "font-medium text-red-500"}>{matchedCategory.categoryType}</span></span>
+              </div>
+            )}
           </div>
         </div>
 

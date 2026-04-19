@@ -1,6 +1,6 @@
 import { type NextRequest } from "next/server";
 import { getSheetData, appendRow, tabExists, createTab } from "@/lib/google-sheets";
-import { CATEGORIES_TAB } from "@/lib/constants";
+import { CATEGORIES_TAB, UNCATEGORIZED } from "@/lib/constants";
 import { getMonthTab, dateToMonthTab, parseTransaction, parseCategory } from "@/lib/sheets-helpers";
 import type { CreateTransactionRequest } from "@/lib/types";
 
@@ -24,9 +24,9 @@ export async function POST(request: NextRequest) {
     const body: CreateTransactionRequest = await request.json();
 
     // Validate required fields
-    if (!body.account || !body.date || !body.description || !body.amount || !body.type || !body.subcategory) {
+    if (!body.account || !body.date || !body.description || !body.amount || !body.type || !body.subcategory || !body.member) {
       return Response.json(
-        { error: "Missing required fields: account, date, description, amount, type, subcategory" },
+        { error: "Missing required fields: account, date, description, amount, type, subcategory, member" },
         { status: 400 }
       );
     }
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     const categories = categoryRows.slice(1).map((row, i) => parseCategory(row, i + 2));
     const matched = categories.find((c) => c.subcategory === body.subcategory);
 
-    const parentCategory = matched?.category ?? "Uncategorized";
+    const parentCategory = matched?.category ?? UNCATEGORIZED;
     const categoryType = matched?.categoryType ?? body.type;
 
     // Determine which month tab this transaction belongs to
@@ -64,6 +64,7 @@ export async function POST(request: NextRequest) {
       body.subcategory,
       parentCategory,
       categoryType,
+      body.member,
     ]);
 
     return Response.json({ success: true, month: monthTab }, { status: 201 });

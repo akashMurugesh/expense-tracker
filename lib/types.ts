@@ -9,6 +9,7 @@ export interface Transaction {
   subcategory: string;
   category: string;
   categoryType: "Income" | "Expense";
+  member: string;
 }
 
 export interface Category {
@@ -30,6 +31,11 @@ export interface Account {
   name: string;
 }
 
+export interface Member {
+  rowIndex: number;
+  name: string;
+}
+
 // API request types
 export interface CreateTransactionRequest {
   account: string;
@@ -38,6 +44,7 @@ export interface CreateTransactionRequest {
   amount: number;
   type: "Income" | "Expense";
   subcategory: string;
+  member: string;
 }
 
 export interface CreateCategoryRequest {
