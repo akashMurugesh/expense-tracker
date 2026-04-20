@@ -1,8 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useSummary } from "@/lib/hooks";
+import { useSummary, useMembers } from "@/lib/hooks";
 import { toMonthTab } from "@/lib/utils";
+import { usePreferences } from "@/lib/preferences";
+import { getCategoryColor } from "@/lib/category-colors";
+import { CategoryBadge } from "@/components/ui/category-badge";
 import {
   Card,
   CardContent,
@@ -17,18 +20,24 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { CategoryBadge } from "@/components/ui/category-badge";
-import { usePreferences } from "@/lib/preferences";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
   TrendingUp,
   TrendingDown,
   Wallet,
-  ArrowLeftRight,
+  Receipt,
   ChevronLeft,
   ChevronRight,
   CalendarDays,
+  Users,
 } from "lucide-react";
 import {
   PieChart,
@@ -39,16 +48,16 @@ import {
   Legend,
 } from "recharts";
 
-const CHART_COLORS = [
-  "#7C3AED", "#22C55E", "#EAB308", "#EF4444", "#A78BFA",
-  "#06B6D4", "#F97316", "#EC4899", "#14B8A6", "#8B5CF6",
-];
-
-
 export default function DashboardPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedMember, setSelectedMember] = useState("all");
   const month = toMonthTab(currentDate);
-  const { data, error, isLoading } = useSummary(month);
+
+  const { data: membersData } = useMembers();
+  const { data, error, isLoading } = useSummary(
+    month,
+    selectedMember === "all" ? undefined : selectedMember
+  );
   const { formatCurrency } = usePreferences();
 
   const isCurrentMonth =
@@ -76,15 +85,17 @@ export default function DashboardPage() {
   if (error) {
     return (
       <div className="flex items-center justify-center h-64">
-        <p className="text-destructive">Failed to load dashboard data. Check your Google Sheets connection.</p>
+        <p className="text-destructive">
+          Failed to load dashboard data. Check your Google Sheets connection.
+        </p>
       </div>
     );
   }
 
   return (
     <div className="space-y-8">
-      {/* ── Page Header + Month Selector ──────────────────────── */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      {/* ── Page Header + Filters ──────────────────────────────── */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground text-sm mt-1">
@@ -92,30 +103,40 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-1 rounded-lg border border-border bg-card px-1 py-1 shadow-sm">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={goToPrevMonth}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
+        <div className="flex items-center gap-3">
+          <Select value={selectedMember} onValueChange={setSelectedMember}>
+            <SelectTrigger className="w-40">
+              <Users className="h-4 w-4 text-muted-foreground" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Members</SelectItem>
+              {membersData?.members.map((m) => (
+                <SelectItem key={m.rowIndex} value={m.name}>
+                  {m.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-          <div className="flex items-center gap-2 px-3 min-w-[140px] justify-center">
-            <CalendarDays className="h-4 w-4 text-primary" />
-            <span className="text-sm font-semibold">{month}</span>
+          <div className="flex items-center gap-1 rounded-lg border border-border bg-card px-1 py-1 shadow-sm">
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={goToPrevMonth}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <div className="flex items-center gap-2 px-3 min-w-[140px] justify-center">
+              <CalendarDays className="h-4 w-4 text-primary" />
+              <span className="text-sm font-semibold">{month}</span>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={goToNextMonth}
+              disabled={isCurrentMonth}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
           </div>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={goToNextMonth}
-            disabled={isCurrentMonth}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
         </div>
       </div>
 
@@ -141,141 +162,39 @@ export default function DashboardPage() {
           valueClass={data && data.netBalance >= 0 ? "text-emerald-500" : "text-red-500"}
         />
         <SummaryCard
-          title="Transactions"
-          value={data ? String(data.transactionCount) : undefined}
-          icon={<ArrowLeftRight className="h-5 w-5 text-muted-foreground" />}
+          title="Expenses"
+          value={data ? String(data.expenseCount) : undefined}
+          icon={<Receipt className="h-5 w-5 text-muted-foreground" />}
           loading={isLoading}
         />
       </div>
 
-      {/* ── Charts + Recent Transactions ─────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* Spending by Category — Pie Chart */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold tracking-tight">
-              Spending by Category
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-64 w-full" />
-            ) : data && data.byCategory.length > 0 ? (
-              <ResponsiveContainer width="100%" height={280}>
-                <PieChart>
-                  <Pie
-                    data={data.byCategory}
-                    dataKey="amount"
-                    nameKey="category"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={100}
-                    innerRadius={50}
-                    paddingAngle={2}
-                    label={({ name }) => name}
-                  >
-                    {data.byCategory.map((_, index) => (
-                      <Cell
-                        key={index}
-                        fill={CHART_COLORS[index % CHART_COLORS.length]}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(value) => formatCurrency(Number(value))}
-                    contentStyle={{
-                      backgroundColor: "var(--popover)",
-                      border: "1px solid var(--border)",
-                      borderRadius: "8px",
-                      color: "var(--popover-foreground)",
-                    }}
-                  />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <p className="text-sm text-muted-foreground text-center py-12">
-                No expense data this month
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Recent Transactions */}
-        <Card className="lg:col-span-3">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold tracking-tight">
-              Recent Transactions
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="space-y-3">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Skeleton key={i} className="h-10 w-full" />
-                ))}
-              </div>
-            ) : data && data.recentTransactions.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead className="hidden sm:table-cell">Member</TableHead>
-                    <TableHead className="hidden lg:table-cell">Subcategory</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.recentTransactions.map((t) => (
-                    <TableRow key={`${t.rowIndex}-${t.date}`}>
-                      <TableCell className="text-muted-foreground">
-                        {t.date}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {t.description}
-                      </TableCell>
-                      <TableCell className="hidden sm:table-cell">
-                        {t.member && (
-                          <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                            @{t.member}
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell text-muted-foreground">
-                        {t.subcategory}
-                      </TableCell>
-                      <TableCell>
-                        <CategoryBadge category={t.category} />
-                      </TableCell>
-                      <TableCell
-                        className={`text-right font-semibold ${
-                          t.categoryType === "Income"
-                            ? "text-emerald-500"
-                            : "text-red-500"
-                        }`}
-                      >
-                        {t.categoryType === "Income" ? "+" : "-"}
-                        {formatCurrency(Math.abs(t.incomeExpense))}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <p className="text-sm text-muted-foreground text-center py-12">
-                No transactions this month
-              </p>
-            )}
-          </CardContent>
-        </Card>
+      {/* ── Spending by Category: Chart + Table ──────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <SpendingChart
+          byCategory={data?.byCategory}
+          isLoading={isLoading}
+          formatCurrency={formatCurrency}
+        />
+        <CategoryBreakdownTable
+          byCategory={data?.byCategory}
+          totalExpenses={data?.totalExpenses ?? 0}
+          isLoading={isLoading}
+          formatCurrency={formatCurrency}
+        />
       </div>
+
+      {/* ── Top 10 Expenses ──────────────────────────────────── */}
+      <TopExpensesTable
+        expenses={data?.topExpenses}
+        isLoading={isLoading}
+        formatCurrency={formatCurrency}
+      />
     </div>
   );
 }
 
-// ── Summary Card Component ─────────────────────────────────────
+// ── Summary Card ────────────────────────────────────────────────
 function SummaryCard({
   title,
   value,
@@ -303,6 +222,215 @@ function SummaryCard({
         ) : (
           <p className={`text-2xl font-bold tracking-tight ${valueClass ?? ""}`}>
             {value}
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── Spending by Category Donut Chart ────────────────────────────
+function SpendingChart({
+  byCategory,
+  isLoading,
+  formatCurrency,
+}: {
+  byCategory?: { category: string; amount: number }[];
+  isLoading: boolean;
+  formatCurrency: (n: number) => string;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg font-semibold tracking-tight">
+          Spending by Category
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <Skeleton className="h-64 w-full" />
+        ) : byCategory && byCategory.length > 0 ? (
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={byCategory}
+                dataKey="amount"
+                nameKey="category"
+                cx="35%"
+                cy="50%"
+                outerRadius={100}
+                innerRadius={50}
+                paddingAngle={2}
+              >
+                {byCategory.map((entry) => (
+                  <Cell
+                    key={entry.category}
+                    fill={getCategoryColor(entry.category).hex}
+                  />
+                ))}
+              </Pie>
+              <Tooltip
+                formatter={(value) => formatCurrency(Number(value))}
+                contentStyle={{
+                  backgroundColor: "var(--popover)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "8px",
+                  color: "var(--popover-foreground)",
+                }}
+              />
+              <Legend
+                layout="vertical"
+                align="right"
+                verticalAlign="middle"
+                iconType="circle"
+                iconSize={8}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        ) : (
+          <p className="text-sm text-muted-foreground text-center py-12">
+            No expense data this month
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── Spending by Category Table ──────────────────────────────────
+function CategoryBreakdownTable({
+  byCategory,
+  totalExpenses,
+  isLoading,
+  formatCurrency,
+}: {
+  byCategory?: { category: string; amount: number }[];
+  totalExpenses: number;
+  isLoading: boolean;
+  formatCurrency: (n: number) => string;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg font-semibold tracking-tight">
+          Category Breakdown
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="space-y-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-8 w-full" />
+            ))}
+          </div>
+        ) : byCategory && byCategory.length > 0 ? (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Category</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+                <TableHead className="text-right w-16">%</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {byCategory.map((cat) => {
+                const pct = totalExpenses > 0
+                  ? ((cat.amount / totalExpenses) * 100).toFixed(1)
+                  : "0.0";
+                return (
+                  <TableRow key={cat.category}>
+                    <TableCell>
+                      <CategoryBadge category={cat.category} />
+                    </TableCell>
+                    <TableCell className="text-right font-medium">
+                      {formatCurrency(cat.amount)}
+                    </TableCell>
+                    <TableCell className="text-right text-muted-foreground">
+                      {pct}%
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        ) : (
+          <p className="text-sm text-muted-foreground text-center py-12">
+            No expense data this month
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── Top 10 Expenses Table ───────────────────────────────────────
+function TopExpensesTable({
+  expenses,
+  isLoading,
+  formatCurrency,
+}: {
+  expenses?: { rowIndex: number; date: string; description: string; member: string; subcategory: string; category: string; incomeExpense: number }[];
+  isLoading: boolean;
+  formatCurrency: (n: number) => string;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg font-semibold tracking-tight">
+          Top 10 Expenses
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="space-y-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-10 w-full" />
+            ))}
+          </div>
+        ) : expenses && expenses.length > 0 ? (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead className="hidden sm:table-cell">Member</TableHead>
+                <TableHead className="hidden lg:table-cell">Subcategory</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead className="text-right">Amount</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {expenses.map((t) => (
+                <TableRow key={`${t.rowIndex}-${t.date}`}>
+                  <TableCell className="text-muted-foreground">
+                    {t.date}
+                  </TableCell>
+                  <TableCell className="font-medium">
+                    {t.description}
+                  </TableCell>
+                  <TableCell className="hidden sm:table-cell">
+                    {t.member && (
+                      <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                        @{t.member}
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell className="hidden lg:table-cell text-muted-foreground">
+                    {t.subcategory}
+                  </TableCell>
+                  <TableCell>
+                    <CategoryBadge category={t.category} />
+                  </TableCell>
+                  <TableCell className="text-right font-semibold text-red-500">
+                    -{formatCurrency(Math.abs(t.incomeExpense))}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        ) : (
+          <p className="text-sm text-muted-foreground text-center py-12">
+            No expenses this month
           </p>
         )}
       </CardContent>
