@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useTransactions } from "@/lib/hooks";
 import { toMonthTab } from "@/lib/utils";
+import { CategoryBadge } from "@/components/ui/category-badge";
+import { usePreferences } from "@/lib/preferences";
 import {
   Card,
   CardContent,
@@ -17,8 +19,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { CategoryBadge } from "@/components/ui/category-badge";
-import { usePreferences } from "@/lib/preferences";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
@@ -29,11 +29,57 @@ import {
   Search,
   Pencil,
   Trash2,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { AddTransactionDialog } from "@/components/transactions/add-transaction-dialog";
 import { EditTransactionDialog } from "@/components/transactions/edit-transaction-dialog";
 import { DeleteTransactionDialog } from "@/components/transactions/delete-transaction-dialog";
 import type { Transaction } from "@/lib/types";
+import { cn } from "@/lib/utils";
+
+// ── Sort types ──────────────────────────────────────────────────
+type SortKey = "date" | "amount" | "category";
+type SortDir = "asc" | "desc";
+interface SortState {
+  key: SortKey;
+  dir: SortDir;
+}
+
+const DEFAULT_SORT: SortState = { key: "date", dir: "desc" };
+
+// Sensible default direction when clicking a new column
+const DEFAULT_DIR: Record<SortKey, SortDir> = {
+  date: "desc",
+  amount: "desc",
+  category: "asc",
+};
+
+// Parse DD/MM/YYYY into a sortable number YYYYMMDD
+function dateToNum(dateStr: string): number {
+  const parts = dateStr.split("/");
+  if (parts.length !== 3) return 0;
+  return parseInt(parts[2] + parts[1] + parts[0], 10);
+}
+
+function compareTransactions(a: Transaction, b: Transaction, sort: SortState): number {
+  let cmp = 0;
+  switch (sort.key) {
+    case "date":
+      cmp = dateToNum(a.date) - dateToNum(b.date);
+      break;
+    case "amount":
+      cmp = Math.abs(a.incomeExpense) - Math.abs(b.incomeExpense);
+      break;
+    case "category":
+      cmp = a.category.localeCompare(b.category);
+      break;
+  }
+  return sort.dir === "asc" ? cmp : -cmp;
+}
+
+// ── Main Page ───────────────────────────────────────────────────
 
 export default function TransactionsPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -41,6 +87,7 @@ export default function TransactionsPage() {
   const { data, error, isLoading, mutate } = useTransactions(month);
 
   const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<SortState>(DEFAULT_SORT);
   const [editTx, setEditTx] = useState<Transaction | null>(null);
   const [deleteTx, setDeleteTx] = useState<Transaction | null>(null);
   const { formatCurrency } = usePreferences();
@@ -67,18 +114,33 @@ export default function TransactionsPage() {
     }
   }
 
-  // Filter by search text
-  const transactions = (data?.transactions ?? []).filter((t) => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (
-      t.description.toLowerCase().includes(q) ||
-      t.category.toLowerCase().includes(q) ||
-      t.subcategory.toLowerCase().includes(q) ||
-      t.account.toLowerCase().includes(q) ||
-      t.member.toLowerCase().includes(q)
+  function handleSort(key: SortKey) {
+    setSort((prev) =>
+      prev.key === key
+        ? { key, dir: prev.dir === "asc" ? "desc" : "asc" }
+        : { key, dir: DEFAULT_DIR[key] }
     );
-  });
+  }
+
+  // Filter by search text
+  const filtered = useMemo(() => {
+    if (!search) return data?.transactions ?? [];
+    const q = search.toLowerCase();
+    return (data?.transactions ?? []).filter(
+      (t) =>
+        t.description.toLowerCase().includes(q) ||
+        t.category.toLowerCase().includes(q) ||
+        t.subcategory.toLowerCase().includes(q) ||
+        t.account.toLowerCase().includes(q) ||
+        t.member.toLowerCase().includes(q)
+    );
+  }, [data?.transactions, search]);
+
+  // Sort filtered results
+  const transactions = useMemo(
+    () => [...filtered].sort((a, b) => compareTransactions(a, b, sort)),
+    [filtered, sort]
+  );
 
   // Totals for filtered view
   const totalIncome = transactions
@@ -110,7 +172,6 @@ export default function TransactionsPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Month Selector */}
           <div className="flex items-center gap-1 rounded-lg border border-border bg-card px-1 py-1 shadow-sm">
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={goToPrevMonth}>
               <ChevronLeft className="h-4 w-4" />
@@ -129,8 +190,6 @@ export default function TransactionsPage() {
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
-
-          {/* Add Button */}
           <AddTransactionDialog onSuccess={() => mutate()} />
         </div>
       </div>
@@ -184,13 +243,13 @@ export default function TransactionsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Date</TableHead>
+                  <SortableHeader label="Date" sortKey="date" sort={sort} onSort={handleSort} />
                   <TableHead>Description</TableHead>
                   <TableHead className="hidden md:table-cell">Account</TableHead>
                   <TableHead className="hidden sm:table-cell">Member</TableHead>
                   <TableHead className="hidden lg:table-cell">Subcategory</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
+                  <SortableHeader label="Category" sortKey="category" sort={sort} onSort={handleSort} />
+                  <SortableHeader label="Amount" sortKey="amount" sort={sort} onSort={handleSort} className="justify-end" />
                   <TableHead className="text-right w-24">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -284,5 +343,42 @@ export default function TransactionsPage() {
         />
       )}
     </div>
+  );
+}
+
+// ── Sortable Table Header ───────────────────────────────────────
+function SortableHeader({
+  label,
+  sortKey,
+  sort,
+  onSort,
+  className,
+}: {
+  label: string;
+  sortKey: SortKey;
+  sort: SortState;
+  onSort: (key: SortKey) => void;
+  className?: string;
+}) {
+  const isActive = sort.key === sortKey;
+  const Icon = isActive
+    ? sort.dir === "asc" ? ArrowUp : ArrowDown
+    : ArrowUpDown;
+
+  return (
+    <TableHead>
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={cn(
+          "flex items-center gap-1 text-xs font-medium transition-colors hover:text-foreground",
+          isActive ? "text-foreground" : "text-muted-foreground",
+          className
+        )}
+      >
+        {label}
+        <Icon className={cn("h-3.5 w-3.5", isActive ? "opacity-100" : "opacity-40")} />
+      </button>
+    </TableHead>
   );
 }

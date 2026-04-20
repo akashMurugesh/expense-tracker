@@ -18,14 +18,18 @@ interface SummaryData {
   totalExpenses: number;
   netBalance: number;
   transactionCount: number;
+  expenseCount: number;
   byCategory: { category: string; amount: number; budget: number | null }[];
-  recentTransactions: Transaction[];
+  topExpenses: Transaction[];
   budgets: Budget[];
 }
 
-export function useSummary(month?: string) {
-  const url = `/api/summary${month ? `?month=${month}` : ""}`;
-  return useSWR<SummaryData>(url, fetcher);
+export function useSummary(month?: string, member?: string) {
+  const params = new URLSearchParams();
+  if (month) params.set("month", month);
+  if (member) params.set("member", member);
+  const qs = params.toString();
+  return useSWR<SummaryData>(`/api/summary${qs ? `?${qs}` : ""}`, fetcher);
 }
 
 // ── Transactions ─────────────────────────────────────────────────
