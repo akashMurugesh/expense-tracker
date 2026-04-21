@@ -32,7 +32,7 @@ export default function RootLayout({
             </div>
           </main>
           <MobileNav />
-          <Toaster position="top-right" />
+          <Toaster position="top-center" />
         </PreferencesProvider>
         </ThemeProvider>
       </body>

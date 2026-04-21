@@ -7,6 +7,9 @@ export const MEMBERS_TAB = "Members";
 // Fallback category name when subcategory has no parent match
 export const UNCATEGORIZED = "Uncategorized";
 
+// Category treated as investment (excluded from spending expenses)
+export const INVESTMENTS_CATEGORY = "Investment";
+
 // Budget threshold percentages
 export const BUDGET_WARNING_THRESHOLD = 0.7;  // Yellow at 70%
 export const BUDGET_DANGER_THRESHOLD = 0.9;   // Red at 90%

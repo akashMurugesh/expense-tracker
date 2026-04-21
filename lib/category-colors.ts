@@ -1,6 +1,10 @@
 // Single source of truth for category colors.
-// Uses a deterministic hash so the same category name always gets the same color
-// across every page — dashboard pie chart, category badges, transactions table.
+//
+// Uses a sequential registry persisted in localStorage:
+// - Each new category gets the next unused color slot
+// - First 12 categories are guaranteed unique colors
+// - Assignment is stable across pages and browser sessions
+// - Falls back to hash-based assignment on the server (where localStorage is unavailable)
 
 const PALETTE = [
   { bg: "bg-violet-500/15", text: "text-violet-700 dark:text-violet-400", hex: "#7C3AED" },
@@ -19,14 +23,65 @@ const PALETTE = [
 
 export type CategoryColor = { bg: string; text: string; hex: string };
 
+// ── Registry (localStorage-backed) ──────────────────────────────
+
+const STORAGE_KEY = "expense-tracker-category-colors";
+
+function loadRegistry(): Record<string, number> {
+  if (typeof window === "undefined") return {};
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function saveRegistry(reg: Record<string, number>) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(reg));
+}
+
+// Module-level cache — loaded once per session, written through to localStorage
+let registry: Record<string, number> | null = null;
+
+function getRegistry(): Record<string, number> {
+  if (!registry) registry = loadRegistry();
+  return registry;
+}
+
+// ── Public API ──────────────────────────────────────────────────
+
+export function getCategoryColor(category: string): CategoryColor {
+  // Server-side fallback: use hash (no localStorage available)
+  if (typeof window === "undefined") {
+    return PALETTE[hashString(category) % PALETTE.length];
+  }
+
+  const reg = getRegistry();
+
+  if (!(category in reg)) {
+    // Find the next unused palette index
+    const usedIndices = new Set(Object.values(reg));
+    let nextIndex = 0;
+    while (usedIndices.has(nextIndex) && nextIndex < PALETTE.length) {
+      nextIndex++;
+    }
+    // Beyond 12 categories, wrap around (unavoidable with a finite palette)
+    if (nextIndex >= PALETTE.length) {
+      nextIndex = Object.keys(reg).length % PALETTE.length;
+    }
+    reg[category] = nextIndex;
+    saveRegistry(reg);
+  }
+
+  return PALETTE[reg[category] % PALETTE.length];
+}
+
+// Hash fallback for server-side rendering
 function hashString(str: string): number {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
   }
   return Math.abs(hash);
-}
-
-export function getCategoryColor(category: string): CategoryColor {
-  return PALETTE[hashString(category) % PALETTE.length];
 }

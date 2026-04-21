@@ -4,8 +4,8 @@ import { useState } from "react";
 import { useSummary, useMembers } from "@/lib/hooks";
 import { toMonthTab } from "@/lib/utils";
 import { usePreferences } from "@/lib/preferences";
-import { getCategoryColor } from "@/lib/category-colors";
 import { CategoryBadge } from "@/components/ui/category-badge";
+import { SpendingDonut } from "@/components/charts/spending-donut";
 import {
   Card,
   CardContent,
@@ -34,19 +34,14 @@ import {
   TrendingDown,
   Wallet,
   Receipt,
+  PiggyBank,
   ChevronLeft,
   ChevronRight,
   CalendarDays,
+  Eye,
+  EyeOff,
   Users,
 } from "lucide-react";
-import {
-  PieChart,
-  Pie,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
-  Legend,
-} from "recharts";
 
 export default function DashboardPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -58,7 +53,8 @@ export default function DashboardPage() {
     month,
     selectedMember === "all" ? undefined : selectedMember
   );
-  const { formatCurrency } = usePreferences();
+  const { prefs, updatePrefs, formatCurrency } = usePreferences();
+  const hideValues = prefs.hideValues;
 
   const isCurrentMonth =
     currentDate.getMonth() === new Date().getMonth() &&
@@ -96,11 +92,22 @@ export default function DashboardPage() {
     <div className="space-y-8">
       {/* ── Page Header + Filters ──────────────────────────────── */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Your financial overview at a glance
-          </p>
+        <div className="flex items-center gap-3">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+            <p className="text-muted-foreground text-sm mt-1">
+              Your financial overview at a glance
+            </p>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            onClick={() => updatePrefs({ hideValues: !hideValues })}
+            aria-label={hideValues ? "Show values" : "Hide values"}
+          >
+            {hideValues ? <EyeOff className="h-4.5 w-4.5" /> : <Eye className="h-4.5 w-4.5" />}
+          </Button>
         </div>
 
         <div className="flex items-center gap-3">
@@ -141,40 +148,53 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Summary Cards ────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         <SummaryCard
           title="Total Income"
           value={data ? formatCurrency(data.totalIncome) : undefined}
           icon={<TrendingUp className="h-5 w-5 text-emerald-500" />}
           loading={isLoading}
+          hidden={hideValues}
+        />
+        <SummaryCard
+          title="Investments"
+          value={data ? formatCurrency(data.totalInvestments) : undefined}
+          icon={<PiggyBank className="h-5 w-5 text-muted-foreground" />}
+          loading={isLoading}
+          hidden={hideValues}
         />
         <SummaryCard
           title="Total Expenses"
           value={data ? formatCurrency(data.totalExpenses) : undefined}
           icon={<TrendingDown className="h-5 w-5 text-red-500" />}
           loading={isLoading}
+          hidden={hideValues}
         />
         <SummaryCard
           title="Net Balance"
           value={data ? formatCurrency(data.netBalance) : undefined}
-          icon={<Wallet className="h-5 w-5 text-primary" />}
+          icon={<Wallet className="h-5 w-5 text-muted-foreground" />}
           loading={isLoading}
           valueClass={data && data.netBalance >= 0 ? "text-emerald-500" : "text-red-500"}
+          hidden={hideValues}
         />
         <SummaryCard
           title="Expenses"
           value={data ? String(data.expenseCount) : undefined}
           icon={<Receipt className="h-5 w-5 text-muted-foreground" />}
           loading={isLoading}
+          hidden={hideValues}
         />
       </div>
 
       {/* ── Spending by Category: Chart + Table ──────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <SpendingChart
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <SpendingDonut
           byCategory={data?.byCategory}
+          totalSpent={(data?.totalExpenses ?? 0) + (data?.totalInvestments ?? 0)}
           isLoading={isLoading}
           formatCurrency={formatCurrency}
+          className="lg:col-span-3"
         />
         <CategoryBreakdownTable
           byCategory={data?.byCategory}
@@ -201,12 +221,14 @@ function SummaryCard({
   icon,
   loading,
   valueClass,
+  hidden,
 }: {
   title: string;
   value?: string;
   icon: React.ReactNode;
   loading: boolean;
   valueClass?: string;
+  hidden?: boolean;
 }) {
   return (
     <Card>
@@ -220,7 +242,9 @@ function SummaryCard({
         {loading ? (
           <Skeleton className="h-8 w-28" />
         ) : (
-          <p className={`text-2xl font-bold tracking-tight ${valueClass ?? ""}`}>
+          <p
+            className={`text-2xl font-bold tracking-tight transition-all ${valueClass ?? ""} ${hidden ? "blur-md select-none" : ""}`}
+          >
             {value}
           </p>
         )}
@@ -229,73 +253,6 @@ function SummaryCard({
   );
 }
 
-// ── Spending by Category Donut Chart ────────────────────────────
-function SpendingChart({
-  byCategory,
-  isLoading,
-  formatCurrency,
-}: {
-  byCategory?: { category: string; amount: number }[];
-  isLoading: boolean;
-  formatCurrency: (n: number) => string;
-}) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg font-semibold tracking-tight">
-          Spending by Category
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <Skeleton className="h-64 w-full" />
-        ) : byCategory && byCategory.length > 0 ? (
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={byCategory}
-                dataKey="amount"
-                nameKey="category"
-                cx="35%"
-                cy="50%"
-                outerRadius={100}
-                innerRadius={50}
-                paddingAngle={2}
-              >
-                {byCategory.map((entry) => (
-                  <Cell
-                    key={entry.category}
-                    fill={getCategoryColor(entry.category).hex}
-                  />
-                ))}
-              </Pie>
-              <Tooltip
-                formatter={(value) => formatCurrency(Number(value))}
-                contentStyle={{
-                  backgroundColor: "var(--popover)",
-                  border: "1px solid var(--border)",
-                  borderRadius: "8px",
-                  color: "var(--popover-foreground)",
-                }}
-              />
-              <Legend
-                layout="vertical"
-                align="right"
-                verticalAlign="middle"
-                iconType="circle"
-                iconSize={8}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-        ) : (
-          <p className="text-sm text-muted-foreground text-center py-12">
-            No expense data this month
-          </p>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
 
 // ── Spending by Category Table ──────────────────────────────────
 function CategoryBreakdownTable({
@@ -310,7 +267,7 @@ function CategoryBreakdownTable({
   formatCurrency: (n: number) => string;
 }) {
   return (
-    <Card>
+    <Card className="lg:col-span-2">
       <CardHeader>
         <CardTitle className="text-lg font-semibold tracking-tight">
           Category Breakdown
