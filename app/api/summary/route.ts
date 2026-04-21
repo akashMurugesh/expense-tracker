@@ -1,6 +1,6 @@
 import { type NextRequest } from "next/server";
 import { getSheetData } from "@/lib/google-sheets";
-import { BUDGETS_TAB } from "@/lib/constants";
+import { BUDGETS_TAB, INVESTMENTS_CATEGORY } from "@/lib/constants";
 import { getMonthTab, parseTransaction, parseBudget } from "@/lib/sheets-helpers";
 
 const round = (n: number) => Math.round(n * 100) / 100;
@@ -28,10 +28,13 @@ export async function GET(request: NextRequest) {
     // ── Compute totals ───────────────────────────────────────────
     let totalIncome = 0;
     let totalExpenses = 0;
+    let totalInvestments = 0;
 
     for (const t of transactions) {
       if (t.categoryType === "Income") {
         totalIncome += t.incomeExpense;
+      } else if (t.category === INVESTMENTS_CATEGORY) {
+        totalInvestments += Math.abs(t.incomeExpense);
       } else {
         totalExpenses += Math.abs(t.incomeExpense);
       }
@@ -64,7 +67,8 @@ export async function GET(request: NextRequest) {
       month,
       totalIncome: round(totalIncome),
       totalExpenses: round(totalExpenses),
-      netBalance: round(totalIncome - totalExpenses),
+      totalInvestments: round(totalInvestments),
+      netBalance: round(totalIncome - totalExpenses - totalInvestments),
       transactionCount: transactions.length,
       expenseCount: expenseTransactions.length,
       byCategory,

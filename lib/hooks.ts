@@ -16,6 +16,7 @@ interface SummaryData {
   month: string;
   totalIncome: number;
   totalExpenses: number;
+  totalInvestments: number;
   netBalance: number;
   transactionCount: number;
   expenseCount: number;

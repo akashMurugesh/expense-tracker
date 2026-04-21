@@ -23,6 +23,7 @@ export interface Preferences {
   defaultAccount: string;
   defaultMember: string;
   sheetsId: string;
+  hideValues: boolean;
 }
 
 const DEFAULT_PREFS: Preferences = {
@@ -30,6 +31,7 @@ const DEFAULT_PREFS: Preferences = {
   defaultAccount: "",
   defaultMember: "",
   sheetsId: "",
+  hideValues: false,
 };
 
 const STORAGE_KEY = "expense-tracker-preferences";
