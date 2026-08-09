@@ -198,7 +198,7 @@ export default function DashboardPage() {
         />
         <CategoryBreakdownTable
           byCategory={data?.byCategory}
-          totalExpenses={data?.totalExpenses ?? 0}
+          totalExpenses={(data?.totalExpenses ?? 0) + (data?.totalInvestments ?? 0)}
           isLoading={isLoading}
           formatCurrency={formatCurrency}
         />
